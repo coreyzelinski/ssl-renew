@@ -1,0 +1,38 @@
+#!/bin/bash
+#PATH=
+certbotinstall () {
+read -p “Select an Operating System, debian or rhel” os
+OS=“$os”
+if [[ “$OS" == “rhel" ]]; then
+  echo “### Begin rhel Install ###”
+  yum install epel-release -y && yum upgrade -y && yum install snapd -y 
+    systemctl enable --now snapd.socket
+  ln -s /var/lib/snapd/snap /snap
+  snap install --classic certbot
+  ln -s /snap/bin/certbot /usr/bin/certbot
+  echo “### rhel Install Complete ###”
+elif [[ “$OS" == “debian" ]]; then
+    echo “### Begin debian Install ###”
+  apt -y update
+  apt -y install snapd
+  snap install core
+  systemctl enable --now snapd.socket
+  ln -s /var/lib/snapd/snap /snap
+  snap install --classic certbot
+  ln -s /snap/bin/certbot /usr/bin/certbot
+  echo “### debian Install Complete ###”
+else
+   echo “You selected something besides debian or rhel."
+fi
+}
+newcert () {
+read -p “what s the Fully Qualified Domain Name?” fully
+$FQDN=“fully"
+service nginx stop
+certbot certonly --standalone --agree-tos --no-eff-email -m corey.zelinski@ieee.org -d “$FQDN"
+}
+renewcerts () {
+service nginx stop
+certbot renew
+service nginx start
+}
