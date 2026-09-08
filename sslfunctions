@@ -1,38 +1,58 @@
 #!/bin/bash
-#PATH=
-certbotinstall () {
-read -p “Select an Operating System, debian or rhel” os
-OS=“$os”
-if [[ “$OS" == “rhel" ]]; then
-  echo “### Begin rhel Install ###”
-  yum install epel-release -y && yum upgrade -y && yum install snapd -y 
-    systemctl enable --now snapd.socket
-  ln -s /var/lib/snapd/snap /snap
-  snap install --classic certbot
-  ln -s /snap/bin/certbot /usr/bin/certbot
-  echo “### rhel Install Complete ###”
-elif [[ “$OS" == “debian" ]]; then
-    echo “### Begin debian Install ###”
-  apt -y update
-  apt -y install snapd
-  snap install core
-  systemctl enable --now snapd.socket
-  ln -s /var/lib/snapd/snap /snap
-  snap install --classic certbot
-  ln -s /snap/bin/certbot /usr/bin/certbot
-  echo “### debian Install Complete ###”
-else
-   echo “You selected something besides debian or rhel."
-fi
+
+certbotinstall() {
+    local os
+    read -r -p "Select an operating system, debian or rhel: " os
+
+    case "$os" in
+        rhel)
+            echo "### Begin rhel Install ###"
+            yum install epel-release -y &&
+                yum upgrade -y &&
+                yum install snapd -y || return 1
+            systemctl enable --now snapd.socket || return 1
+            ln -sfn /var/lib/snapd/snap /snap || return 1
+            snap install --classic certbot || return 1
+            ln -sfn /snap/bin/certbot /usr/bin/certbot || return 1
+            echo "### rhel Install Complete ###"
+            ;;
+        debian)
+            echo "### Begin debian Install ###"
+            apt -y update && apt -y install snapd || return 1
+            snap install core || return 1
+            systemctl enable --now snapd.socket || return 1
+            ln -sfn /var/lib/snapd/snap /snap || return 1
+            snap install --classic certbot || return 1
+            ln -sfn /snap/bin/certbot /usr/bin/certbot || return 1
+            echo "### debian Install Complete ###"
+            ;;
+        *)
+            echo "You selected something besides debian or rhel."
+            return 1
+            ;;
+    esac
 }
-newcert () {
-read -p “what s the Fully Qualified Domain Name?” fully
-$FQDN=“fully"
-service nginx stop
-certbot certonly --standalone --agree-tos --no-eff-email -m corey.zelinski@ieee.org -d “$FQDN"
+
+newcert() {
+    local fqdn
+    read -r -p "What is the fully qualified domain name? " fqdn
+    if [[ -z "$fqdn" ]]; then
+        echo "A domain name is required."
+        return 1
+    fi
+
+    service nginx stop || return 1
+    certbot certonly --standalone --agree-tos --no-eff-email \
+        -m corey.zelinski@ieee.org -d "$fqdn"
+    local certbot_status=$?
+    service nginx start || return 1
+    return "$certbot_status"
 }
-renewcerts () {
-service nginx stop
-certbot renew
-service nginx start
+
+renewcerts() {
+    service nginx stop || return 1
+    certbot renew
+    local certbot_status=$?
+    service nginx start || return 1
+    return "$certbot_status"
 }
